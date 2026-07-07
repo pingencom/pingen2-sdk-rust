@@ -20,7 +20,7 @@ jobs:
 
       - name: Set version from tag
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${GITHUB_REF_NAME}"
           sed -i "s/^version *= *\".*\"/version = \"${VERSION}\"/" Cargo.toml
           echo "Publishing version ${VERSION}"
 
