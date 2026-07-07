@@ -1,0 +1,15 @@
+services:
+  rust-sdk:
+    image: pingen2/rust-sdk
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        RUST_VERSION: ${RUST_VERSION:-1.96.1}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    container_name: rust-sdk
+    security_opt:
+      - seccomp=unconfined
+    volumes:
+      - ./:/usr/src

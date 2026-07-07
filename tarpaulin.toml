@@ -1,0 +1,7 @@
+[default]
+skip-clean = true
+exclude-files = [
+    "src/error.rs",
+    "src/api/file_upload.rs",
+    "src/dto/typed_response.rs",
+]
