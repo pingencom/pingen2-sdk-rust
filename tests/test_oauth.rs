@@ -593,7 +593,11 @@ async fn test_token_manager_huge_expires_in_does_not_overflow() {
         )
         .create();
 
-    let manager = TokenManager::new(server.url(), Some("cid".to_string()), Some("sec".to_string()));
+    let manager = TokenManager::new(
+        server.url(),
+        Some("cid".to_string()),
+        Some("sec".to_string()),
+    );
     let token = manager.get_access_token().await.unwrap();
     assert_eq!(token, "huge");
 }
