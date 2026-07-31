@@ -3,13 +3,14 @@ use common::*;
 
 use mockito::Server;
 use pingen2_sdk::api::*;
+use pingen2_sdk::error::PingenError;
 use pingen2_sdk::{EmailMetaData, EmailRelationships, PresetRelationship};
 use serde_json::json;
 
 fn email_json(id: &str) -> String {
     json!({
         "data": { "id": id, "type": "emails", "attributes": {
-            "status": "string", "file_original_name": "lorem.pdf", "file_pages": 2,
+            "status": "string", "file_original_name": "test.pdf", "file_pages": 2,
             "recipient_identifier": "info@acme.com",
             "price_currency": "CHF", "price_value": 1.25,
             "source": "api",
@@ -97,7 +98,7 @@ async fn test_emails_create() {
         .create();
     let em = Emails::new(ORG_ID, TOKEN, server.url());
     assert_eq!(
-        em.create("https://s3.ex/file", "$sig", "lorem.pdf", false, None, None)
+        em.create("https://s3.ex/file", "$sig", "test.pdf", false, None, None)
             .await
             .unwrap()
             .status_code,
@@ -123,7 +124,7 @@ async fn test_emails_upload_and_create() {
         .create();
     let em = Emails::new(ORG_ID, TOKEN, server.url());
     assert_eq!(
-        em.upload_and_create(&fixture_pdf(), "lorem.pdf", false, None, None)
+        em.upload_and_create(&fixture_pdf(), "test.pdf", false, None, None)
             .await
             .unwrap()
             .status_code,
@@ -152,7 +153,7 @@ async fn test_emails_create_with_optional_params() {
         .create(
             "https://s3.ex/file",
             "$sig",
-            "lorem.pdf",
+            "test.pdf",
             false,
             Some(&EmailMetaData {
                 sender_name: "Test Sender".into(),
@@ -168,6 +169,76 @@ async fn test_emails_create_with_optional_params() {
         .await
         .unwrap();
     assert_eq!(r.status_code, 201);
+}
+
+#[tokio::test]
+async fn test_emails_cancel() {
+    let mut server = Server::new_async().await;
+    let id = "emailcan-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+    let _m = server
+        .mock(
+            "PATCH",
+            format!("/organisations/{ORG_ID}/deliveries/emails/{id}/cancel").as_str(),
+        )
+        .with_status(202)
+        .create();
+
+    let em = Emails::new(ORG_ID, TOKEN, server.url());
+    let r = em.cancel(id).await.unwrap();
+    assert_eq!(r.status_code, 202);
+}
+
+#[tokio::test]
+async fn test_emails_delete() {
+    let mut server = Server::new_async().await;
+    let id = "emaildel-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+    let _m = server
+        .mock(
+            "DELETE",
+            format!("/organisations/{ORG_ID}/deliveries/emails/{id}").as_str(),
+        )
+        .with_status(204)
+        .create();
+
+    let em = Emails::new(ORG_ID, TOKEN, server.url());
+    let r = em.delete(id).await.unwrap();
+    assert_eq!(r.status_code, 204);
+}
+
+#[tokio::test]
+async fn test_emails_delete_unauthorized() {
+    let mut server = Server::new_async().await;
+    let id = "emaildel-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+    let _m = server
+        .mock(
+            "DELETE",
+            format!("/organisations/{ORG_ID}/deliveries/emails/{id}").as_str(),
+        )
+        .with_status(401)
+        .with_body(access_denied_json())
+        .create();
+
+    let em = Emails::new(ORG_ID, TOKEN, server.url());
+    let err = em.delete(id).await;
+    assert!(matches!(err, Err(PingenError::Api { status: 401, .. })));
+}
+
+#[tokio::test]
+async fn test_emails_get_file() {
+    let mut server = Server::new_async().await;
+    let id = "emailfil-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+    let pdf_bytes: &[u8] = b"%PDF-1.4\r\n\xFF\xD8\xFE\x00binary-content";
+    let _m = server
+        .mock(
+            "GET",
+            format!("/organisations/{ORG_ID}/deliveries/emails/{id}/file").as_str(),
+        )
+        .with_status(200)
+        .with_body(pdf_bytes)
+        .create();
+    let em = Emails::new(ORG_ID, TOKEN, server.url());
+    let content = em.get_file(id).await.unwrap();
+    assert_eq!(content, pdf_bytes);
 }
 
 #[tokio::test]

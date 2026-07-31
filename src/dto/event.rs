@@ -32,4 +32,8 @@ pub struct EventRelationships {
     pub letter: Option<RelationshipItem>,
     #[serde(default)]
     pub batch: Option<RelationshipItem>,
+    #[serde(default)]
+    pub email: Option<RelationshipItem>,
+    #[serde(default)]
+    pub ebill: Option<RelationshipItem>,
 }

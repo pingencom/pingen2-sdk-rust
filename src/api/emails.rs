@@ -1,7 +1,8 @@
 use crate::api::file_upload::FileUpload;
-use crate::api::requestor::ApiRequestor;
+use crate::api::requestor::{ApiRequestor, TokenProvider};
 use crate::dto::{ApiCollection, ApiResource, EmailAttributes, EmailMetaData, PresetRelationship};
 use crate::error::Result;
+use crate::response::PingenResponse;
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::Path;
@@ -13,7 +14,7 @@ pub struct Emails {
 impl Emails {
     pub fn new(
         org_id: impl Into<String>,
-        access_token: impl Into<String>,
+        access_token: impl Into<TokenProvider>,
         api_base: impl Into<String>,
     ) -> Self {
         Self {
@@ -74,13 +75,13 @@ impl Emails {
         meta_data: Option<&EmailMetaData>,
         preset: Option<&PresetRelationship>,
     ) -> Result<ApiResource<EmailAttributes>> {
-        let mut attrs = json!({
+        // Sent unconditionally: an absent `meta_data` serialises to `null`
+        // rather than being omitted from the payload.
+        let attrs = json!({
             "file_original_name": file_name, "file_url": file_url,
-            "file_url_signature": file_signature, "auto_send": auto_send
+            "file_url_signature": file_signature, "auto_send": auto_send,
+            "meta_data": meta_data
         });
-        if let Some(md) = meta_data {
-            attrs["meta_data"] = json!(md);
-        }
         let mut data = json!({ "type": "emails", "attributes": attrs });
         if let Some(p) = preset {
             data["relationships"] = p.to_value();
@@ -94,5 +95,38 @@ impl Emails {
             )
             .await?;
         resp.to_resource()
+    }
+
+    pub async fn cancel(&self, email_id: &str) -> Result<PingenResponse> {
+        self.requestor
+            .patch(
+                &format!(
+                    "/organisations/{}/deliveries/emails/{}/cancel",
+                    self.org_id, email_id
+                ),
+                None,
+            )
+            .await
+    }
+
+    pub async fn delete(&self, email_id: &str) -> Result<PingenResponse> {
+        self.requestor
+            .delete(
+                &format!(
+                    "/organisations/{}/deliveries/emails/{}",
+                    self.org_id, email_id
+                ),
+                None,
+            )
+            .await
+    }
+
+    pub async fn get_file(&self, email_id: &str) -> Result<Vec<u8>> {
+        self.requestor
+            .download(&format!(
+                "/organisations/{}/deliveries/emails/{}/file",
+                self.org_id, email_id
+            ))
+            .await
     }
 }

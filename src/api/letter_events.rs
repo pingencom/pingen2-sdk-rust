@@ -1,4 +1,4 @@
-use crate::api::requestor::ApiRequestor;
+use crate::api::requestor::{ApiRequestor, TokenProvider};
 use crate::dto::{ApiCollection, EventAttributes};
 use crate::error::Result;
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ pub struct LetterEvents {
 impl LetterEvents {
     pub fn new(
         org_id: impl Into<String>,
-        access_token: impl Into<String>,
+        access_token: impl Into<TokenProvider>,
         api_base: impl Into<String>,
     ) -> Self {
         Self {

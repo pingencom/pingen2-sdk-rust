@@ -32,10 +32,7 @@ async fn test_letters_get_details() {
     assert_eq!(r.id, id);
     assert_eq!(r.request_id(), Some("requestx-xxxx-xxxx-xxxx-xxxxxxxxxxx1"));
     assert_eq!(r.attributes.status.as_deref(), Some("string"));
-    assert_eq!(
-        r.attributes.file_original_name.as_deref(),
-        Some("lorem.pdf")
-    );
+    assert_eq!(r.attributes.file_original_name.as_deref(), Some("test.pdf"));
     assert_eq!(r.attributes.file_pages, Some(2));
     assert_eq!(r.attributes.address_position.as_deref(), Some("left"));
     assert_eq!(r.attributes.country.as_deref(), Some("CH"));
@@ -123,7 +120,7 @@ async fn test_letters_create() {
         .create(
             "https://s3.ex/file",
             "$sig",
-            "lorem.pdf",
+            "test.pdf",
             AddressPosition::Left,
             false,
             None,
@@ -159,7 +156,7 @@ async fn test_letters_upload_and_create() {
     let r = letters
         .upload_and_create(
             &fixture_pdf(),
-            "lorem.pdf",
+            "test.pdf",
             AddressPosition::Left,
             false,
             None,
@@ -339,7 +336,7 @@ async fn test_letters_create_with_optional_params() {
         .create(
             "https://s3.ex/file",
             "$sig",
-            "lorem.pdf",
+            "test.pdf",
             AddressPosition::Left,
             true,
             Some(DeliveryProduct::Fast),

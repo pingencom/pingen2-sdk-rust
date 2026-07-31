@@ -1,6 +1,7 @@
 mod address_position;
 mod batch_delivery_product;
 mod batch_icon;
+mod channel_type;
 mod delivery_product;
 mod grouping_type;
 mod paper_type;
@@ -13,6 +14,7 @@ mod webhook_event_category;
 pub use address_position::AddressPosition;
 pub use batch_delivery_product::BatchDeliveryProduct;
 pub use batch_icon::BatchIcon;
+pub use channel_type::ChannelType;
 pub use delivery_product::DeliveryProduct;
 pub use grouping_type::GroupingType;
 pub use paper_type::PaperType;

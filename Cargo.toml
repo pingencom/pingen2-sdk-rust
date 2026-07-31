@@ -5,6 +5,10 @@ edition = "2021"
 description = "Official Rust SDK for the Pingen2 API"
 license = "MIT"
 repository = "https://github.com/pingencom/pingen2-sdk-rust"
+readme = "README.md"
+keywords = ["pingen", "letter", "api", "sdk"]
+categories = ["api-bindings"]
+include = ["src/**/*.rs", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
 reqwest    = { version = "0.12", features = ["json", "multipart", "stream"] }
@@ -21,3 +25,11 @@ urlencoding = "2"
 [dev-dependencies]
 mockito = "1"
 tokio   = { version = "1", features = ["full"] }
+
+[[test]]
+name = "integration_pingen"
+path = "tests/integration/pingen.rs"
+
+[[test]]
+name = "integration_oauth"
+path = "tests/integration/oauth.rs"

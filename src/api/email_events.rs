@@ -1,14 +1,13 @@
 use crate::api::requestor::{ApiRequestor, TokenProvider};
 use crate::dto::{ApiCollection, EventAttributes};
 use crate::error::Result;
-
 use std::collections::HashMap;
 
-pub struct BatchEvents {
+pub struct EmailEvents {
     org_id: String,
     requestor: ApiRequestor,
 }
-impl BatchEvents {
+impl EmailEvents {
     pub fn new(
         org_id: impl Into<String>,
         access_token: impl Into<TokenProvider>,
@@ -21,13 +20,16 @@ impl BatchEvents {
     }
     pub async fn get_collection(
         &self,
-        batch_id: &str,
+        email_id: &str,
         params: Option<&HashMap<String, String>>,
     ) -> Result<ApiCollection<EventAttributes>> {
         let resp = self
             .requestor
             .get(
-                &format!("/organisations/{}/batches/{}/events", self.org_id, batch_id),
+                &format!(
+                    "/organisations/{}/deliveries/emails/{}/events",
+                    self.org_id, email_id
+                ),
                 params,
             )
             .await?;

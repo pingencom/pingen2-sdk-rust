@@ -1,4 +1,4 @@
-use crate::api::requestor::ApiRequestor;
+use crate::api::requestor::{ApiRequestor, TokenProvider};
 use crate::dto::{ApiCollection, ApiResource, OrganisationAttributes};
 use crate::error::Result;
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ pub struct Organisations {
     requestor: ApiRequestor,
 }
 impl Organisations {
-    pub fn new(access_token: impl Into<String>, api_base: impl Into<String>) -> Self {
+    pub fn new(access_token: impl Into<TokenProvider>, api_base: impl Into<String>) -> Self {
         Self {
             requestor: ApiRequestor::new(access_token, api_base),
         }

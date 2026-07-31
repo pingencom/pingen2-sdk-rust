@@ -3,7 +3,5 @@ Cargo.lock
 *.rs.bk
 .idea/
 
-# Local integration test with credentials
-examples/manual_test.rs
-letter.pdf
+# Local credentials — never committed
 .env

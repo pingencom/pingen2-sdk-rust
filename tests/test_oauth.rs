@@ -92,7 +92,7 @@ fn test_oauth_get_token_from_implicit() {
 #[test]
 fn test_oauth_get_token_from_implicit_empty() {
     let result = OAuth::get_token_from_implicit("");
-    assert!(result.is_empty() || result.len() == 1);
+    assert!(result.is_empty());
 }
 
 #[test]
@@ -400,11 +400,8 @@ async fn test_token_manager_reuses_valid_token() {
         Some("sec".to_string()),
     );
 
-    let mut params = HashMap::new();
-    params.insert("grant_type".to_string(), "client_credentials".to_string());
-
-    let first = manager.get_token(params.clone()).await.unwrap();
-    let second = manager.get_token(params).await.unwrap();
+    let first = manager.get_access_token().await.unwrap();
+    let second = manager.get_access_token().await.unwrap();
 
     assert_eq!(first, "first");
     assert_eq!(second, "first");
@@ -428,10 +425,8 @@ async fn test_token_manager_refreshes_expired_token() {
         Some("cid".to_string()),
         Some("sec".to_string()),
     );
-    let mut params = HashMap::new();
-    params.insert("grant_type".to_string(), "client_credentials".to_string());
 
-    let first = manager.get_token(params.clone()).await.unwrap();
+    let first = manager.get_access_token().await.unwrap();
     assert_eq!(first, "expired");
     _m1.assert_async().await;
 
@@ -445,7 +440,7 @@ async fn test_token_manager_refreshes_expired_token() {
         .expect(1)
         .create();
 
-    let second = manager.get_token(params).await.unwrap();
+    let second = manager.get_access_token().await.unwrap();
     assert_eq!(second, "renewed");
     _m2.assert_async().await;
 }
@@ -467,10 +462,8 @@ async fn test_token_manager_invalidate_forces_refresh() {
         Some("cid".to_string()),
         Some("sec".to_string()),
     );
-    let mut params = HashMap::new();
-    params.insert("grant_type".to_string(), "client_credentials".to_string());
 
-    let first = manager.get_token(params.clone()).await.unwrap();
+    let first = manager.get_access_token().await.unwrap();
     assert_eq!(first, "one");
     _m1.assert_async().await;
 
@@ -485,7 +478,122 @@ async fn test_token_manager_invalidate_forces_refresh() {
         .expect(1)
         .create();
 
-    let second = manager.get_token(params).await.unwrap();
+    let second = manager.get_access_token().await.unwrap();
     assert_eq!(second, "two");
     _m2.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_token_manager_client_credentials_get_access_token() {
+    let mut server = Server::new_async().await;
+    let _m = server
+        .mock("POST", "/auth/access-tokens")
+        .match_body(Matcher::AllOf(vec![
+            Matcher::UrlEncoded("grant_type".into(), "client_credentials".into()),
+            Matcher::UrlEncoded("scope".into(), "letter batch".into()),
+            Matcher::UrlEncoded("client_id".into(), "cid".into()),
+            Matcher::UrlEncoded("client_secret".into(), "sec".into()),
+        ]))
+        .with_status(200)
+        .with_body(
+            json!({"token_type": "Bearer", "expires_in": 3600, "access_token": "cc_managed"})
+                .to_string(),
+        )
+        .expect(1)
+        .create();
+
+    let manager =
+        TokenManager::client_credentials(server.url(), "cid", "sec", Some("letter batch"));
+
+    let first = manager.get_access_token().await.unwrap();
+    let second = manager.get_access_token().await.unwrap();
+
+    assert_eq!(first, "cc_managed");
+    assert_eq!(second, "cc_managed");
+    _m.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_token_manager_get_access_token_after_invalidate() {
+    let mut server = Server::new_async().await;
+    let _m1 = server
+        .mock("POST", "/auth/access-tokens")
+        .with_status(200)
+        .with_body(
+            json!({"token_type": "Bearer", "expires_in": 3600, "access_token": "stale"})
+                .to_string(),
+        )
+        .expect(1)
+        .create();
+
+    let manager = TokenManager::client_credentials(server.url(), "cid", "sec", None);
+
+    let first = manager.get_access_token().await.unwrap();
+    assert_eq!(first, "stale");
+    _m1.assert_async().await;
+
+    manager.invalidate().await;
+
+    let _m2 = server
+        .mock("POST", "/auth/access-tokens")
+        .with_status(200)
+        .with_body(
+            json!({"token_type": "Bearer", "expires_in": 3600, "access_token": "fresh"})
+                .to_string(),
+        )
+        .expect(1)
+        .create();
+
+    let second = manager.get_access_token().await.unwrap();
+    assert_eq!(second, "fresh");
+    _m2.assert_async().await;
+}
+
+#[test]
+fn test_token_manager_debug_redacts_client_secret() {
+    let manager =
+        TokenManager::client_credentials("https://api.example", "my_cid", "SUPER_SECRET", None);
+    let dbg = format!("{manager:?}");
+    assert!(
+        !dbg.contains("SUPER_SECRET"),
+        "client secret must never appear in Debug output: {dbg}"
+    );
+    assert!(dbg.contains("[redacted]"));
+    // The (non-secret) client id and base URL are still useful for debugging.
+    assert!(dbg.contains("my_cid"));
+}
+
+#[test]
+fn test_token_provider_debug_redacts_static_token() {
+    let provider: pingen2_sdk::TokenProvider = "SECRET_BEARER_TOKEN".into();
+    let dbg = format!("{provider:?}");
+    assert!(
+        !dbg.contains("SECRET_BEARER_TOKEN"),
+        "static bearer token must never appear in Debug output: {dbg}"
+    );
+    assert!(dbg.contains("[redacted]"));
+}
+
+#[tokio::test]
+async fn test_token_manager_huge_expires_in_does_not_overflow() {
+    // An absurd expires_in must not panic on SystemTime overflow — the
+    // checked_add fallback treats it as immediately expiring but still returns
+    // the freshly fetched token.
+    let mut server = Server::new_async().await;
+    let _m = server
+        .mock("POST", "/auth/access-tokens")
+        .with_status(200)
+        .with_body(
+            json!({
+                "token_type": "Bearer",
+                "expires_in": u64::MAX,
+                "access_token": "huge"
+            })
+            .to_string(),
+        )
+        .create();
+
+    let manager = TokenManager::new(server.url(), Some("cid".to_string()), Some("sec".to_string()));
+    let token = manager.get_access_token().await.unwrap();
+    assert_eq!(token, "huge");
 }
