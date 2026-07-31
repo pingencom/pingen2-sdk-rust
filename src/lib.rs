@@ -1,4 +1,5 @@
 #![allow(clippy::too_many_arguments)]
+#![doc = include_str!("../README.md")]
 
 pub mod api;
 pub mod dto;
