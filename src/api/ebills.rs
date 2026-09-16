@@ -1,7 +1,8 @@
 use crate::api::file_upload::FileUpload;
-use crate::api::requestor::ApiRequestor;
+use crate::api::requestor::{ApiRequestor, TokenProvider};
 use crate::dto::{ApiCollection, ApiResource, EbillAttributes, EbillMetaData, PresetRelationship};
 use crate::error::Result;
+use crate::response::PingenResponse;
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::Path;
@@ -13,7 +14,7 @@ pub struct Ebills {
 impl Ebills {
     pub fn new(
         org_id: impl Into<String>,
-        access_token: impl Into<String>,
+        access_token: impl Into<TokenProvider>,
         api_base: impl Into<String>,
     ) -> Self {
         Self {
@@ -94,5 +95,53 @@ impl Ebills {
             )
             .await?;
         resp.to_resource()
+    }
+
+    pub async fn send(&self, ebill_id: &str) -> Result<ApiResource<EbillAttributes>> {
+        let payload = json!({ "data": { "id": ebill_id, "type": "ebills" }});
+        let resp = self
+            .requestor
+            .patch(
+                &format!(
+                    "/organisations/{}/deliveries/ebills/{}/send",
+                    self.org_id, ebill_id
+                ),
+                Some(&payload.to_string()),
+            )
+            .await?;
+        resp.to_resource()
+    }
+
+    pub async fn cancel(&self, ebill_id: &str) -> Result<PingenResponse> {
+        self.requestor
+            .patch(
+                &format!(
+                    "/organisations/{}/deliveries/ebills/{}/cancel",
+                    self.org_id, ebill_id
+                ),
+                None,
+            )
+            .await
+    }
+
+    pub async fn delete(&self, ebill_id: &str) -> Result<PingenResponse> {
+        self.requestor
+            .delete(
+                &format!(
+                    "/organisations/{}/deliveries/ebills/{}",
+                    self.org_id, ebill_id
+                ),
+                None,
+            )
+            .await
+    }
+
+    pub async fn get_file(&self, ebill_id: &str) -> Result<Vec<u8>> {
+        self.requestor
+            .download(&format!(
+                "/organisations/{}/deliveries/ebills/{}/file",
+                self.org_id, ebill_id
+            ))
+            .await
     }
 }

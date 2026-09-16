@@ -1,5 +1,5 @@
 use crate::api::file_upload::FileUpload;
-use crate::api::requestor::ApiRequestor;
+use crate::api::requestor::{ApiRequestor, TokenProvider};
 use crate::dto::{
     ApiCollection, ApiResource, LetterAttributes, LetterMetaData, LetterPriceAttributes,
     PresetRelationship,
@@ -19,7 +19,7 @@ pub struct Letters {
 impl Letters {
     pub fn new(
         org_id: impl Into<String>,
-        access_token: impl Into<String>,
+        access_token: impl Into<TokenProvider>,
         api_base: impl Into<String>,
     ) -> Self {
         Self {
@@ -193,10 +193,13 @@ impl Letters {
 
     pub async fn delete(&self, letter_id: &str) -> Result<PingenResponse> {
         self.requestor
-            .delete(&format!(
-                "/organisations/{}/deliveries/letters/{}",
-                self.org_id, letter_id
-            ))
+            .delete(
+                &format!(
+                    "/organisations/{}/deliveries/letters/{}",
+                    self.org_id, letter_id
+                ),
+                None,
+            )
             .await
     }
 

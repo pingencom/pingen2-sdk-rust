@@ -1,13 +1,13 @@
 use crate::api::file_upload::FileUpload;
-use crate::api::requestor::ApiRequestor;
+use crate::api::requestor::{ApiRequestor, TokenProvider};
 use crate::dto::{
     ApiCollection, ApiResource, BatchAttributes, BatchStatisticsAttributes, PresetRelationship,
 };
 use crate::error::Result;
 use crate::response::PingenResponse;
 use crate::types::{
-    AddressPosition, BatchDeliveryProduct, BatchIcon, GroupingType, PaperType, PrintMode,
-    PrintSpectrum, SplitPosition, SplitType,
+    AddressPosition, BatchDeliveryProduct, BatchIcon, ChannelType, GroupingType, PaperType,
+    PrintMode, PrintSpectrum, SplitPosition, SplitType,
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -21,7 +21,7 @@ pub struct Batches {
 impl Batches {
     pub fn new(
         org_id: impl Into<String>,
-        access_token: impl Into<String>,
+        access_token: impl Into<TokenProvider>,
         api_base: impl Into<String>,
     ) -> Self {
         Self {
@@ -68,6 +68,7 @@ impl Batches {
         split_size: Option<i64>,
         split_separator: Option<&str>,
         split_position: Option<SplitPosition>,
+        channel_type: Option<ChannelType>,
         preset: Option<&PresetRelationship>,
     ) -> Result<ApiResource<BatchAttributes>> {
         let fu = FileUpload::new(&self.requestor);
@@ -85,6 +86,7 @@ impl Batches {
             split_size,
             split_separator,
             split_position,
+            channel_type,
             preset,
         )
         .await
@@ -103,6 +105,7 @@ impl Batches {
         split_size: Option<i64>,
         split_separator: Option<&str>,
         split_position: Option<SplitPosition>,
+        channel_type: Option<ChannelType>,
         preset: Option<&PresetRelationship>,
     ) -> Result<ApiResource<BatchAttributes>> {
         let mut attrs = json!({
@@ -111,6 +114,8 @@ impl Batches {
             "address_position": address_position.as_str(), "grouping_type": grouping_type.as_str(),
             "grouping_options_split_type": split_type.as_str(),
         });
+        let channel_type = channel_type.unwrap_or(ChannelType::Post);
+        attrs["channel_type"] = json!(channel_type.as_str());
         if let Some(sz) = split_size {
             attrs["grouping_options_split_size"] = json!(sz);
         }
@@ -135,19 +140,80 @@ impl Batches {
         resp.to_resource()
     }
 
-    pub async fn send(
+    /// Submits a `post` channel batch, with a per-country delivery product for
+    /// each destination (`delivery_products: [{ country, delivery_product }]`).
+    /// Uses the advanced post-send endpoint (`batches_channel_post_advanced_send`).
+    pub async fn send_post(
         &self,
         batch_id: &str,
         delivery_products: &[BatchDeliveryProduct],
         print_mode: PrintMode,
         print_spectrum: PrintSpectrum,
     ) -> Result<ApiResource<BatchAttributes>> {
-        let payload = json!({ "data": { "id": batch_id, "type": "batches",
-            "attributes": { "delivery_products": delivery_products, "print_mode": print_mode.as_str(), "print_spectrum": print_spectrum.as_str() }}});
+        let attributes = json!({
+            "delivery_products": delivery_products,
+            "print_mode": print_mode.as_str(),
+            "print_spectrum": print_spectrum.as_str(),
+        });
+        self.send(batch_id, "batches_channel_post_advanced_send", attributes)
+            .await
+    }
+
+    /// Submits an `email` channel batch (`delivery_product` is always
+    /// `electronic_email`).
+    pub async fn send_email(&self, batch_id: &str) -> Result<ApiResource<BatchAttributes>> {
+        let attributes = json!({ "delivery_product": "electronic_email" });
+        self.send(batch_id, "batches_channel_email_send", attributes)
+            .await
+    }
+
+    /// Submits an `ebill` channel batch (`delivery_product` is always
+    /// `electronic_ebill`).
+    pub async fn send_ebill(&self, batch_id: &str) -> Result<ApiResource<BatchAttributes>> {
+        let attributes = json!({ "delivery_product": "electronic_ebill" });
+        self.send(batch_id, "batches_channel_ebill_send", attributes)
+            .await
+    }
+
+    async fn send(
+        &self,
+        batch_id: &str,
+        type_: &str,
+        attributes: serde_json::Value,
+    ) -> Result<ApiResource<BatchAttributes>> {
+        let payload = json!({ "data": {
+            "id": batch_id,
+            "type": type_,
+            "attributes": attributes,
+        }});
         let resp = self
             .requestor
             .patch(
                 &format!("/organisations/{}/batches/{}/send", self.org_id, batch_id),
+                Some(&payload.to_string()),
+            )
+            .await?;
+        resp.to_resource()
+    }
+
+    pub async fn update(
+        &self,
+        batch_id: &str,
+        name: Option<&str>,
+        icon: Option<BatchIcon>,
+    ) -> Result<ApiResource<BatchAttributes>> {
+        let mut attrs = json!({});
+        if let Some(name) = name {
+            attrs["name"] = json!(name);
+        }
+        if let Some(icon) = icon {
+            attrs["icon"] = json!(icon.as_str());
+        }
+        let payload = json!({ "data": { "id": batch_id, "type": "batches", "attributes": attrs }});
+        let resp = self
+            .requestor
+            .patch(
+                &format!("/organisations/{}/batches/{}", self.org_id, batch_id),
                 Some(&payload.to_string()),
             )
             .await?;
@@ -163,12 +229,23 @@ impl Batches {
             .await
     }
 
-    pub async fn delete(&self, batch_id: &str) -> Result<PingenResponse> {
+    pub async fn delete(&self, batch_id: &str, with_deliverables: bool) -> Result<PingenResponse> {
+        let payload = json!({ "data": {
+            "id": batch_id,
+            "type": "batches",
+            "attributes": {
+                // `with_letters` is still required by the API but is deprecated in
+                // favour of `with_deliverables`. Remove it once the API no longer
+                // requires it.
+                "with_letters": with_deliverables,
+                "with_deliverables": with_deliverables,
+            },
+        }});
         self.requestor
-            .delete(&format!(
-                "/organisations/{}/batches/{}",
-                self.org_id, batch_id
-            ))
+            .delete(
+                &format!("/organisations/{}/batches/{}", self.org_id, batch_id),
+                Some(&payload.to_string()),
+            )
             .await
     }
 

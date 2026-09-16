@@ -12,8 +12,13 @@ pub struct BatchAttributes {
     pub status: Option<String>,
     #[serde(default)]
     pub file_original_name: Option<String>,
+    /// Deprecated by the API in favour of [`deliverable_count`](Self::deliverable_count).
     #[serde(default)]
     pub letter_count: Option<u32>,
+    #[serde(default)]
+    pub deliverable_count: Option<u32>,
+    #[serde(default)]
+    pub channel_type: Option<String>,
     #[serde(default)]
     pub address_position: Option<String>,
     #[serde(default)]

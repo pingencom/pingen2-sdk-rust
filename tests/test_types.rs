@@ -1,6 +1,6 @@
 use pingen2_sdk::{
-    AddressPosition, BatchDeliveryProduct, BatchIcon, DeliveryProduct, GroupingType, PaperType,
-    PrintMode, PrintSpectrum, SplitPosition, SplitType, WebhookEventCategory,
+    AddressPosition, BatchDeliveryProduct, BatchIcon, ChannelType, DeliveryProduct, GroupingType,
+    PaperType, PrintMode, PrintSpectrum, SplitPosition, SplitType, WebhookEventCategory,
 };
 
 #[test]
@@ -95,10 +95,23 @@ fn test_batch_icon() {
 }
 
 #[test]
+fn test_channel_type() {
+    assert_eq!(ChannelType::Post.as_str(), "post");
+    assert_eq!(ChannelType::Email.as_str(), "email");
+    assert_eq!(ChannelType::Ebill.as_str(), "ebill");
+    assert_eq!(ChannelType::Post.to_string(), "post");
+}
+
+#[test]
 fn test_batch_delivery_product() {
     let bdp = BatchDeliveryProduct::new("CH", DeliveryProduct::Fast);
     assert_eq!(bdp.country, "CH");
     assert_eq!(bdp.delivery_product, "fast");
+    // Serialises to the { country, delivery_product } object the advanced
+    // post-send endpoint expects.
+    let json = serde_json::to_value(&bdp).unwrap();
+    assert_eq!(json["country"], "CH");
+    assert_eq!(json["delivery_product"], "fast");
 }
 
 #[test]

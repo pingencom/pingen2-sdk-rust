@@ -8,13 +8,13 @@ pub const ORG_ID: &str = "testxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx1";
 pub const TOKEN: &str = "test_access_token";
 
 pub fn fixture_pdf() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lorem.pdf")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/test.pdf")
 }
 
 pub fn letter_json(id: &str) -> String {
     json!({
         "data": { "id": id, "type": "letters", "attributes": {
-            "status": "string", "file_original_name": "lorem.pdf", "file_pages": 2,
+            "status": "string", "file_original_name": "test.pdf", "file_pages": 2,
             "address": "Hans Meier\nExample street 4\n8000 Zürich\nSwitzerland",
             "address_position": "left", "country": "CH",
             "delivery_product": "fast", "print_mode": "simplex", "print_spectrum": "color",
@@ -46,7 +46,8 @@ pub fn batch_json(id: &str) -> String {
     json!({
         "data": { "id": id, "type": "batches", "attributes": {
             "name": "Test Batch", "icon": "campaign", "status": "string",
-            "file_original_name": "lorem.pdf", "letter_count": 2,
+            "file_original_name": "test.pdf", "letter_count": 2,
+            "deliverable_count": 2, "channel_type": "post",
             "address_position": "left", "print_mode": "simplex", "print_spectrum": "color",
             "price_currency": "CHF", "price_value": 1.25,
             "source": "api",

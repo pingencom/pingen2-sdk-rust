@@ -1,4 +1,4 @@
-use crate::api::requestor::ApiRequestor;
+use crate::api::requestor::{ApiRequestor, TokenProvider};
 use crate::dto::{ApiCollection, ApiResource, WebhookAttributes};
 use crate::error::Result;
 use crate::response::PingenResponse;
@@ -13,7 +13,7 @@ pub struct Webhooks {
 impl Webhooks {
     pub fn new(
         org_id: impl Into<String>,
-        access_token: impl Into<String>,
+        access_token: impl Into<TokenProvider>,
         api_base: impl Into<String>,
     ) -> Self {
         Self {
@@ -64,10 +64,10 @@ impl Webhooks {
     }
     pub async fn delete(&self, webhook_id: &str) -> Result<PingenResponse> {
         self.requestor
-            .delete(&format!(
-                "/organisations/{}/webhooks/{}",
-                self.org_id, webhook_id
-            ))
+            .delete(
+                &format!("/organisations/{}/webhooks/{}", self.org_id, webhook_id),
+                None,
+            )
             .await
     }
 }

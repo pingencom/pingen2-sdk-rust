@@ -15,7 +15,9 @@ fn test_pingen_client_new() {
     let _user_assoc = client.user_associations();
     let _webhooks = client.webhooks(ORG_ID);
     let _ebills = client.ebills(ORG_ID);
+    let _ebill_events = client.ebill_events(ORG_ID);
     let _emails = client.emails(ORG_ID);
+    let _email_events = client.email_events(ORG_ID);
 }
 
 #[test]
@@ -28,5 +30,33 @@ fn test_pingen_client_new_staging() {
     let _user_assoc = client.user_associations();
     let _webhooks = client.webhooks(ORG_ID);
     let _ebills = client.ebills(ORG_ID);
+    let _ebill_events = client.ebill_events(ORG_ID);
     let _emails = client.emails(ORG_ID);
+    let _email_events = client.email_events(ORG_ID);
+}
+
+#[test]
+fn test_pingen_client_with_credentials() {
+    let client = PingenClient::with_credentials("id", "sec", Some("scope"));
+    let _letters = client.letters(ORG_ID);
+    let _batches = client.batches(ORG_ID);
+    let _orgs = client.organisations();
+    let _webhooks = client.webhooks(ORG_ID);
+    let _ebills = client.ebills(ORG_ID);
+    let _ebill_events = client.ebill_events(ORG_ID);
+    let _emails = client.emails(ORG_ID);
+    let _email_events = client.email_events(ORG_ID);
+}
+
+#[test]
+fn test_pingen_client_with_credentials_staging() {
+    let client = PingenClient::with_credentials_staging("id", "sec", None);
+    let _letters = client.letters(ORG_ID);
+    let _batches = client.batches(ORG_ID);
+    let _orgs = client.organisations();
+    let _webhooks = client.webhooks(ORG_ID);
+    let _ebills = client.ebills(ORG_ID);
+    let _ebill_events = client.ebill_events(ORG_ID);
+    let _emails = client.emails(ORG_ID);
+    let _email_events = client.email_events(ORG_ID);
 }

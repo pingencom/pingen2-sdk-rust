@@ -1,5 +1,7 @@
 use super::DeliveryProduct;
 
+/// A per-country delivery product for an advanced post-channel batch send
+/// (`delivery_products: [{ "country": "CH", "delivery_product": "fast" }, ...]`).
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BatchDeliveryProduct {
     pub country: String,

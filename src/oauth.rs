@@ -123,23 +123,43 @@ impl OAuth {
 
 /// Caches an OAuth access token in memory and reuses it across calls as long as it
 /// has not expired, only requesting a new one from the token endpoint when needed.
-#[derive(Debug)]
+///
+/// Combined with [`crate::api::requestor::TokenProvider::Managed`] this gives every
+/// API struct transparent token auto-refresh: each request asks the manager for a
+/// token and an expired one is replaced automatically before the request is sent.
 pub struct TokenManager {
     api_base: String,
     default_client_id: Option<String>,
     default_client_secret: Option<String>,
+    default_params: HashMap<String, String>,
     cached: tokio::sync::Mutex<Option<CachedToken>>,
 }
 
-#[derive(Debug, Clone)]
-struct CachedToken {
-    access_token: String,
-    expires_at: std::time::Instant,
+// Hand-written so the client secret and any cached bearer token are never
+// surfaced through `{:?}` (a divergence from a derived Debug that would leak
+// credentials into logs).
+impl std::fmt::Debug for TokenManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TokenManager")
+            .field("api_base", &self.api_base)
+            .field("default_client_id", &self.default_client_id)
+            .field(
+                "default_client_secret",
+                &self.default_client_secret.as_ref().map(|_| "[redacted]"),
+            )
+            .field("default_params", &self.default_params)
+            .field("cached", &"[redacted]")
+            .finish()
+    }
 }
 
-/// Subtracted from the token's reported `expires_in` so a token that is about to
-/// expire mid-request is refreshed early rather than reused right up to the wire.
-const TOKEN_EXPIRY_SAFETY_MARGIN: std::time::Duration = std::time::Duration::from_secs(30);
+#[derive(Clone)]
+struct CachedToken {
+    access_token: String,
+    expires_at: std::time::SystemTime,
+}
+
+const TOKEN_EXPIRY_SAFETY_MARGIN: std::time::Duration = std::time::Duration::from_secs(300);
 
 impl TokenManager {
     pub fn new(
@@ -147,21 +167,37 @@ impl TokenManager {
         default_client_id: Option<String>,
         default_client_secret: Option<String>,
     ) -> Self {
+        let mut default_params = HashMap::new();
+        default_params.insert("grant_type".to_string(), "client_credentials".to_string());
         Self {
             api_base: api_base.into(),
             default_client_id,
             default_client_secret,
+            default_params,
             cached: tokio::sync::Mutex::new(None),
         }
     }
 
-    /// Returns the cached access token if it is still valid, otherwise requests a
-    /// fresh one via `OAuth::get_token` using `params` (e.g. `grant_type`) and caches it.
-    pub async fn get_token(&self, params: HashMap<String, String>) -> Result<String> {
+    pub fn client_credentials(
+        api_base: impl Into<String>,
+        client_id: impl Into<String>,
+        client_secret: impl Into<String>,
+        scope: Option<&str>,
+    ) -> Self {
+        let mut manager = Self::new(api_base, Some(client_id.into()), Some(client_secret.into()));
+        if let Some(scope) = scope {
+            manager
+                .default_params
+                .insert("scope".to_string(), scope.to_string());
+        }
+        manager
+    }
+
+    pub async fn get_access_token(&self) -> Result<String> {
         {
             let cache = self.cached.lock().await;
             if let Some(token) = cache.as_ref() {
-                if token.expires_at > std::time::Instant::now() {
+                if token.expires_at > std::time::SystemTime::now() {
                     return Ok(token.access_token.clone());
                 }
             }
@@ -171,21 +207,23 @@ impl TokenManager {
             &self.api_base,
             self.default_client_id.as_deref(),
             self.default_client_secret.as_deref(),
-            params,
+            self.default_params.clone(),
         )
         .await?;
         let token: crate::dto::TokenResponse = serde_json::from_value(value)?;
         let ttl = std::time::Duration::from_secs(token.expires_in)
             .saturating_sub(TOKEN_EXPIRY_SAFETY_MARGIN);
+        let expires_at = std::time::SystemTime::now()
+            .checked_add(ttl)
+            .unwrap_or_else(std::time::SystemTime::now);
         let access_token = token.access_token.clone();
         *self.cached.lock().await = Some(CachedToken {
             access_token: access_token.clone(),
-            expires_at: std::time::Instant::now() + ttl,
+            expires_at,
         });
         Ok(access_token)
     }
 
-    /// Discards the cached token, forcing the next `get_token` call to fetch a fresh one.
     pub async fn invalidate(&self) {
         *self.cached.lock().await = None;
     }
