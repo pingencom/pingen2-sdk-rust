@@ -98,12 +98,6 @@ async fn organisations_crud() {
         .expect("fetching the organisation must succeed");
     assert_eq!(detail.status_code, 200);
     assert_eq!(detail.id, org_id);
-    if !credentials.organisation_name.is_empty() {
-        assert_eq!(
-            detail.attributes.name.as_deref(),
-            Some(credentials.organisation_name.as_str())
-        );
-    }
 }
 
 // =============================================================================

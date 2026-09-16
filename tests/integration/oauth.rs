@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 fn build_token_manager(credentials: &common::Credentials) -> Arc<TokenManager> {
     Arc::new(TokenManager::client_credentials(
-        common::api_base(credentials),
+        common::api_base(),
         credentials.client_id.clone(),
         credentials.client_secret.clone(),
         Some(common::SCOPE),
@@ -41,7 +41,7 @@ async fn token_can_be_obtained_and_used() {
         .expect("token request must succeed");
     assert!(!token.is_empty(), "Token request must return a token");
 
-    let api_base = common::api_base(&credentials);
+    let api_base = common::api_base();
     let organisations = Organisations::new(manager.clone(), api_base);
     let response = organisations
         .get_collection(None)
@@ -81,7 +81,7 @@ async fn invalidated_token_is_refreshed() {
         return;
     };
     let manager = build_token_manager(&credentials);
-    let api_base = common::api_base(&credentials);
+    let api_base = common::api_base();
     let organisations = Organisations::new(manager.clone(), api_base);
 
     // Initial call acquires the first token and proves it works.

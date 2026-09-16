@@ -3,8 +3,7 @@
 //! The integration tests hit the real Pingen **staging** API and therefore need
 //! valid staging credentials. Credentials are read from a `.env` file at the
 //! repository root (lines of `KEY=VALUE`, comments and blank lines are skipped,
-//! surrounding quotes are stripped) or from real environment variables (handy
-//! for CI). Real environment variables take precedence over values in `.env`.
+//! surrounding quotes are stripped).
 //!
 //! Rust has no runtime "skip" for tests, so every integration test starts with
 //! [`require_credentials`]: when no credentials are configured it prints a
@@ -12,7 +11,7 @@
 
 #![allow(dead_code)]
 
-use pingen2_sdk::{EbillMetaData, EmailMetaData, PingenClient, API_PRODUCTION, API_STAGING};
+use pingen2_sdk::{EbillMetaData, EmailMetaData, PingenClient, API_STAGING};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -31,14 +30,12 @@ pub const FILE_NAME: &str = "test.pdf";
 /// deterministically.
 pub const FILE_NAME_CANCELLABLE: &str = "test_simulate_cancellable.pdf";
 
-/// Integration credentials merged from `.env` and real environment variables.
+/// Integration credentials for the staging API.
 #[derive(Debug, Clone)]
 pub struct Credentials {
     pub client_id: String,
     pub client_secret: String,
     pub organisation_id: String,
-    pub organisation_name: String,
-    pub use_staging: bool,
 }
 
 fn repo_root() -> PathBuf {
@@ -67,8 +64,6 @@ fn parse_dotenv(path: &Path) -> HashMap<String, String> {
 }
 
 fn lookup(dotenv: &HashMap<String, String>, key: &str) -> String {
-    // Real environment variables win over `.env` so that CI can inject
-    // secrets without writing a file to disk.
     std::env::var(key)
         .ok()
         .filter(|value| !value.is_empty())
@@ -76,29 +71,14 @@ fn lookup(dotenv: &HashMap<String, String>, key: &str) -> String {
         .unwrap_or_default()
 }
 
-/// Loads the integration credentials, merging `.env` and real env vars.
+/// Loads the integration credentials.
 pub fn load_credentials() -> Credentials {
     let dotenv = parse_dotenv(&repo_root().join(".env"));
-
-    // Default to staging - integration tests must never target production
-    // unless explicitly asked for via PINGEN2_USE_STAGING.
-    let raw_use_staging = lookup(&dotenv, "PINGEN2_USE_STAGING");
-    let raw_use_staging = if raw_use_staging.is_empty() {
-        "true".to_string()
-    } else {
-        raw_use_staging
-    };
-    let use_staging = !matches!(
-        raw_use_staging.trim().to_lowercase().as_str(),
-        "0" | "false" | "no" | "off"
-    );
 
     Credentials {
         client_id: lookup(&dotenv, "PINGEN2_CLIENT_ID"),
         client_secret: lookup(&dotenv, "PINGEN2_CLIENT_SECRET"),
-        organisation_id: lookup(&dotenv, "PINGEN2_ORGANIZATION_ID"),
-        organisation_name: lookup(&dotenv, "PINGEN2_ORGANIZATION_NAME"),
-        use_staging,
+        organisation_id: lookup(&dotenv, "PINGEN2_ORGANISATION_ID"),
     }
 }
 
@@ -116,31 +96,19 @@ pub fn require_credentials() -> Option<Credentials> {
     Some(credentials)
 }
 
-/// API base matching the configured environment (staging by default).
-pub fn api_base(credentials: &Credentials) -> &'static str {
-    if credentials.use_staging {
-        API_STAGING
-    } else {
-        API_PRODUCTION
-    }
+/// API base for the suite. It must never run against production.
+pub fn api_base() -> &'static str {
+    API_STAGING
 }
 
 /// Builds a client that obtains and refreshes `client_credentials` tokens
-/// itself, targeting staging unless explicitly configured otherwise.
+/// itself. The suite must never run against production.
 pub fn client(credentials: &Credentials) -> PingenClient {
-    if credentials.use_staging {
-        PingenClient::with_credentials_staging(
-            credentials.client_id.clone(),
-            credentials.client_secret.clone(),
-            Some(SCOPE),
-        )
-    } else {
-        PingenClient::with_credentials(
-            credentials.client_id.clone(),
-            credentials.client_secret.clone(),
-            Some(SCOPE),
-        )
-    }
+    PingenClient::with_credentials_staging(
+        credentials.client_id.clone(),
+        credentials.client_secret.clone(),
+        Some(SCOPE),
+    )
 }
 
 /// The configured organisation id, or the first one returned by the API.
