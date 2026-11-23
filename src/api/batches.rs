@@ -234,10 +234,6 @@ impl Batches {
             "id": batch_id,
             "type": "batches",
             "attributes": {
-                // `with_letters` is still required by the API but is deprecated in
-                // favour of `with_deliverables`. Remove it once the API no longer
-                // requires it.
-                "with_letters": with_deliverables,
                 "with_deliverables": with_deliverables,
             },
         }});

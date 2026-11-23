@@ -20,15 +20,11 @@ pub struct OrganisationAttributes {
     #[serde(default)]
     pub edition: Option<String>,
     #[serde(default)]
-    pub default_country: Option<String>,
-    #[serde(default)]
     pub default_address_position: Option<String>,
     #[serde(default)]
     pub data_retention_addresses: Option<u32>,
     #[serde(default)]
     pub data_retention_pdf: Option<u32>,
-    #[serde(default)]
-    pub limits_monthly_letters_count: Option<u32>,
     #[serde(default)]
     pub color: Option<String>,
     #[serde(default)]
