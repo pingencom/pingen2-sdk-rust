@@ -9,7 +9,7 @@ Official Rust SDK for the [Pingen v2 API](https://api.pingen.com).
 
 ## Requirements
 
-- Rust 1.97+ (2021 edition)
+- Rust 1.100+ (2021 edition)
 - Tokio async runtime
 - A Pingen account with OAuth credentials ([how to obtain](https://api.pingen.com/documentation#section/Authentication/How-to-obtain-a-Client-ID))
 
@@ -300,7 +300,7 @@ docker compose exec rust-sdk cargo test --test integration_pingen --test integra
 ### Changing the Rust version
 
 ```sh
-RUST_VERSION=1.98 docker compose build
+RUST_VERSION=1.101 docker compose build
 ```
 
 ---
