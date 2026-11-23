@@ -346,7 +346,7 @@ async fn test_batches_delete_with_deliverables() {
             "data": {
                 "id": id,
                 "type": "batches",
-                "attributes": { "with_letters": true, "with_deliverables": true }
+                "attributes": { "with_deliverables": true }
             }
         })))
         .with_status(204)
@@ -368,7 +368,7 @@ async fn test_batches_delete_without_deliverables() {
             "data": {
                 "id": id,
                 "type": "batches",
-                "attributes": { "with_letters": false, "with_deliverables": false }
+                "attributes": { "with_deliverables": false }
             }
         })))
         .with_status(204)
